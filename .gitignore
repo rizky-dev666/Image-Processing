@@ -1,0 +1,23 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environment
+venv/
+.venv/
+
+# Dataset mentah - besar, tidak perlu ke GitHub
+dataset/
+
+# Preprocessed archive besar (kalau ada)
+preprocessed/archive/
+
+# Feature matrix besar - hanya untuk training
+features/train_features.npz
+features/test_features.npz
+
+# Jupyter checkpoint (kalau ada)
+.ipynb_checkpoints/
+
+# VSCode settings (opsional)
+.vscode/

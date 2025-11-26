@@ -1,0 +1,9 @@
+Jumlah data latih: 28709
+Jumlah fitur asli: 4366
+Jumlah fitur setelah PCA: 200
+Akurasi latih: 0.4583
+Kernel SVM: rbf
+C: 0.1
+Gamma: 0.001
+Class weight: balanced
+Waktu training: 1438.95 detik
