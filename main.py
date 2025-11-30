@@ -2,12 +2,7 @@ import os
 import numpy as np
 import joblib
 from preprocess import load_train_test_data
-from feature_extraction import extract_hog_lbp_features
-from utils import encode_labels
-from sklearn.svm import SVC
-from sklearn.preprocessing import StandardScaler
-from sklearn.pipeline import make_pipeline
-from sklearn.decomposition import PCA 
+from utils import encode_labels, create_svm_model, extract_combined_features
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 import seaborn as sns
 import matplotlib
@@ -42,9 +37,9 @@ def preprocess_data():
 def extract_features(X_train, X_test):
     print("\n=== [2] EKSTRAKSI FITUR HOG + LBP ===")
     print("Ekstraksi fitur train...")
-    X_train_features = np.array([extract_hog_lbp_features(img) for img in X_train])
+    X_train_features = np.array([extract_combined_features(img) for img in X_train])
     print("Ekstraksi fitur test...")
-    X_test_features = np.array([extract_hog_lbp_features(img) for img in X_test])
+    X_test_features = np.array([extract_combined_features(img) for img in X_test])
     print(f"Ekstraksi selesai. Dimensi fitur: {X_train_features.shape[1]}")
     return X_train_features, X_test_features
 
@@ -54,18 +49,7 @@ def train_model(X_train_features, X_test_features, y_train, y_test):
     y_train_encoded, le = encode_labels(y_train)
     y_test_encoded = le.transform(y_test)
 
-    svm = make_pipeline(
-        StandardScaler(),
-        PCA(n_components=200),  
-        SVC(
-            kernel='rbf',
-            C=0.1,             
-            gamma=0.001,
-            class_weight='balanced',  
-            probability=True,
-            random_state=42
-        )
-    )
+    svm = create_svm_model()
     
     print("Melatih model...")
     svm.fit(X_train_features, y_train_encoded)

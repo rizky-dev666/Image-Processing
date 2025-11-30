@@ -1,53 +1,9 @@
 import os
 import cv2
-import numpy as np
-from skimage.feature import hog, local_binary_pattern
-from tqdm import tqdm
 import time
-
-# === Parameter LBP ===
-LBP_RADIUS = 1
-LBP_N_POINTS = 8 * LBP_RADIUS  # = 8
-LBP_METHOD = 'uniform'
-LBP_BINS = LBP_N_POINTS + 3    # = 11 bins
-
-
-def extract_hog_features(image):
-    return hog(
-        image,
-        orientations=9,
-        pixels_per_cell=(4, 4), 
-        cells_per_block=(2, 2),
-        block_norm='L2-Hys',
-        visualize=False,
-        feature_vector=True
-    )
-
-
-def extract_lbp_features(image):
-    lbp = local_binary_pattern(image, LBP_N_POINTS, LBP_RADIUS, LBP_METHOD)
-    hist, _ = np.histogram(
-        lbp.ravel(),
-        bins=np.arange(LBP_BINS),    
-        range=(0, LBP_BINS - 1)   
-    )
-    hist = hist.astype("float32")
-    hist /= (hist.sum() + 1e-7)
-    return hist
-
-
-def extract_hog_lbp_features(image):
-    hog_feat = extract_hog_features(image)
-    lbp_feat = extract_lbp_features(image)
-    return np.hstack([hog_feat, lbp_feat])
-
-
-def extract_combined_features(image_path):
-    image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-    if image is None:
-        raise ValueError(f"Tidak bisa membaca gambar: {image_path}")
-    image = cv2.resize(image, (48, 48))
-    return extract_hog_lbp_features(image)
+import numpy as np
+from tqdm import tqdm
+from utils import extract_combined_features
 
 
 def extract_features_from_folder(base_dir, output_file, sample_rate=1.0):
@@ -78,7 +34,12 @@ def extract_features_from_folder(base_dir, output_file, sample_rate=1.0):
         for img_name in tqdm(image_files, desc=f"    {label_name}", unit="img"):
             img_path = os.path.join(label_dir, img_name)
             try:
-                features = extract_combined_features(img_path)
+                image = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+                if image is None:
+                    raise ValueError(f"Tidak bisa membaca gambar: {img_path}")
+                image = cv2.resize(image, (48, 48))
+                features = extract_combined_features(image)
+                
                 X.append(features)
                 y.append(label_name)
             except Exception as e:

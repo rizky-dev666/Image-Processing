@@ -14,15 +14,10 @@ from utils import (
 )
 
 # ==========================
-# KONFIGURASI MODEL
+# KONFIGURASI GLOBAL
 # ==========================
 MODEL_PATH = "saved_model/svm_model.pkl"
 ENCODER_PATH = "saved_model/label_encoder.pkl"
-
-st.set_page_config(
-    page_title="Deteksi Ekspresi Manusia | HOG + LBP + SVM",
-    layout="wide",
-)
 
 EMOTION_COLORS = {
     "happy": (46, 204, 113),
@@ -284,11 +279,24 @@ form[data-testid="stForm"] {
 }
 </style>
 """
-st.markdown(CUSTOM_STYLES, unsafe_allow_html=True)
 
 # ==========================
-# FUNGSI BANTUAN UI
+# KONFIGURASI DETEKSI WAJAH
 # ==========================
+CASCADE_PATH = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+EYE_CASCADE_PATH = cv2.data.haarcascades + "haarcascade_eye_tree_eyeglasses.xml"
+face_cascade = cv2.CascadeClassifier(CASCADE_PATH)
+eye_cascade = cv2.CascadeClassifier(EYE_CASCADE_PATH)
+
+
+def setup_page():
+    st.set_page_config(
+        page_title="Deteksi Ekspresi Manusia | HOG + LBP + SVM",
+        layout="wide",
+    )
+    st.markdown(CUSTOM_STYLES, unsafe_allow_html=True)
+
+
 def display_card(placeholder, title, body_html, variant="info"):
     placeholder.markdown(
         f"""
@@ -303,43 +311,26 @@ def display_card(placeholder, title, body_html, variant="info"):
     )
 
 
-def render_preview_card(container, renderer):
-    container.empty()
-    with container:
-        st.markdown("<div class='preview-card'>", unsafe_allow_html=True)
-        renderer()
-        st.markdown("</div>", unsafe_allow_html=True)
+def render_sidebar():
+    with st.sidebar:
+        try:
+            global svm_model, label_encoder
+            svm_model, label_encoder = load_model(MODEL_PATH, ENCODER_PATH)
+            st.success("Model berhasil dimuat!")
+        except Exception as e:
+            st.error(f"Gagal memuat model:\n{e}")
+            st.stop()
 
+        st.header("Panduan")
+        st.markdown(
+            "1. Pilih tab *Gambar* atau *Video*.\n"
+            "2. Unggah file yang ingin dianalisis.\n"
+            "3. Klik tombol proses lalu tunggu hasilnya."
+        )
+        st.caption(f"Model: `{MODEL_PATH}`")
 
-# ==========================
-# LOAD MODEL & ENCODER
-# ==========================
-with st.sidebar:
-    try:
-        svm_model, label_encoder = load_model(MODEL_PATH, ENCODER_PATH)
-        st.success("Model berhasil dimuat!")
-    except Exception as e:
-        st.error(f"Gagal memuat model:\n{e}")
-        st.stop()
-
-    st.header("Panduan")
-    st.markdown(
-        "1. Pilih tab *Gambar* atau *Video*.\n"
-        "2. Unggah file yang ingin dianalisis.\n"
-        "3. Klik tombol proses lalu tunggu hasilnya."
-    )
-    st.caption(f"Model: `{MODEL_PATH}`")
-
-    st.header("Pengaturan")
-    st.info("Pengaturan Frame Skip Rate kini tersedia di tab Video dan Realtime masing-masing.")
-
-# ==========================
-# KONFIGURASI DETEKSI WAJAH
-# ==========================
-CASCADE_PATH = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
-EYE_CASCADE_PATH = cv2.data.haarcascades + "haarcascade_eye_tree_eyeglasses.xml"
-face_cascade = cv2.CascadeClassifier(CASCADE_PATH)
-eye_cascade = cv2.CascadeClassifier(EYE_CASCADE_PATH)
+        st.header("Pengaturan")
+        st.info("Pengaturan Frame Skip Rate kini tersedia di tab Video dan Realtime masing-masing.")
 
 
 # ==========================
@@ -640,96 +631,102 @@ def process_video_upload(uploaded_video, video_placeholder, progress_placeholder
     )
 
 
-# ==========================
-# UI STREAMLIT
-# ==========================
-st.markdown("<div class='page-shell'>", unsafe_allow_html=True)
+def get_available_cameras(max_devices=6):
+    available = []
+    for i in range(max_devices):
+        cap = cv2.VideoCapture(i)
+        if cap.isOpened():
+            available.append(f"Camera {i}")
+        cap.release()
+    return available
 
-st.markdown(
-    """
-    <div class="hero-wrap">
-        <div class="hero-card">
-            <div class="chip chip-soft">Next Gen Expression Detection</div>
-            <h1>Deteksi Ekspresi Manusia Berbasis <span class="text-glow">HOG, LBP, SVM</span></h1>
-            <p>Klasifikasi ekspresi wajah berdasarkan gambar, video pendek, maupun realtime.</p>
-            <div class="spacer-sm"></div>
-            <div class="pill-row">
-                <span class="pill outline">HOG + LBP</span>
-                <span class="pill outline">SVM RBF</span>
-                <span class="pill outline">Face Quality Gate</span>
-            </div>
-        </div>
-        <div class="hero-card hero-side">
-            <div class="metric-grid">
-                <div class="metric-card large">
-                    <p class="metric-label">Output Ekspresi</p>
-                    <p class="metric-value">7 kelas</p>
-                    <p class="metric-sub">Happy, Sad, Angry, Neutral, Surprise, Fear, Disgust</p>
-                </div>
-                <div class="metric-card">
-                    <p class="metric-label">Performa</p>
-                    <p class="metric-value">Ringan</p>
-                    <p class="metric-sub">FPS custom & frame skip</p>
-                </div>
-                <div class="metric-card">
-                    <p class="metric-label">Resolusi Input</p>
-                    <p class="metric-value">48x48 px</p>
-                    <p class="metric-sub">Grayscale, siap proses</p>
+
+def render_hero_section():
+    st.markdown(
+        """
+        <div class="hero-wrap">
+            <div class="hero-card">
+                <div class="chip chip-soft">Next Gen Expression Detection</div>
+                <h1>Deteksi Ekspresi Manusia Berbasis <span class="text-glow">HOG, LBP, SVM</span></h1>
+                <p>Klasifikasi ekspresi wajah berdasarkan gambar, video pendek, maupun realtime.</p>
+                <div class="spacer-sm"></div>
+                <div class="pill-row">
+                    <span class="pill outline">HOG + LBP</span>
+                    <span class="pill outline">SVM RBF</span>
+                    <span class="pill outline">Face Quality Gate</span>
                 </div>
             </div>
-                <div class="band">
-                <span class="chip chip-soft">Skin Tone Filter</span>
-                <span class="chip chip-soft">Blur & Noise Gate</span>
-                <span class="chip chip-soft">Multi-Face Ready</span>
+            <div class="hero-card hero-side">
+                <div class="metric-grid">
+                    <div class="metric-card large">
+                        <p class="metric-label">Output Ekspresi</p>
+                        <p class="metric-value">7 kelas</p>
+                        <p class="metric-sub">Happy, Sad, Angry, Neutral, Surprise, Fear, Disgust</p>
+                    </div>
+                    <div class="metric-card">
+                        <p class="metric-label">Performa</p>
+                        <p class="metric-value">Ringan</p>
+                        <p class="metric-sub">FPS custom & frame skip</p>
+                    </div>
+                    <div class="metric-card">
+                        <p class="metric-label">Resolusi Input</p>
+                        <p class="metric-value">48x48 px</p>
+                        <p class="metric-sub">Grayscale, siap proses</p>
+                    </div>
+                </div>
+                    <div class="band">
+                    <span class="chip chip-soft">Skin Tone Filter</span>
+                    <span class="chip chip-soft">Blur & Noise Gate</span>
+                    <span class="chip chip-soft">Multi-Face Ready</span>
+                </div>
             </div>
         </div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+        """,
+        unsafe_allow_html=True,
+    )
 
-st.markdown(
-    """
-    <div class="mode-grid">
-        <div class="mode-card">
-            <p class="chip chip-line">Gambar</p>
-            <h4>Foto cepat</h4>
-            <p>Unggah potret wajah lalu lihat sorotan ekspresi dengan highlight warna.</p>
-            <div class="mode-chips">
-                <span class="chip chip-soft">JPG/PNG</span>
-                <span class="chip chip-soft">Auto Crop</span>
-                <span class="chip chip-soft">Output Ekspresi</span>
-            </div>
-        </div>
-        <div class="mode-card">
-            <p class="chip chip-line">Video</p>
-            <h4>Ringkas frame</h4>
-            <p>Ideal untuk klip &lt; 1 menit dengan kontrol FPS dan frame skip.</p>
-            <div class="mode-chips">
-                <span class="chip chip-soft">MP4/AVI/MOV</span>
-                <span class="chip chip-soft">Progress bar</span>
-                <span class="chip chip-soft">Preview</span>
-            </div>
-        </div>
-        <div class="mode-card">
-            <p class="chip chip-line">Realtime</p>
-            <h4>Streaming webcam</h4>
-            <p>Pantau ekspresi wajah secara langsung dari kamera dengan highlight warna.</p>
-            <div class="mode-chips">
-                <span class="chip chip-soft">Pilih kamera</span>
-                <span class="chip chip-soft">Frame skip</span>
-                <span class="chip chip-soft">Status live</span>
-            </div>
-        </div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
 
-tab_image, tab_video, tab_realtime = st.tabs(["Gambar", "Video", "Realtime"])
+def render_mode_selection():
+    st.markdown(
+        """
+        <div class="mode-grid">
+            <div class="mode-card">
+                <p class="chip chip-line">Gambar</p>
+                <h4>Foto cepat</h4>
+                <p>Unggah potret wajah lalu lihat sorotan ekspresi dengan highlight warna.</p>
+                <div class="mode-chips">
+                    <span class="chip chip-soft">JPG/PNG</span>
+                    <span class="chip chip-soft">Auto Crop</span>
+                    <span class="chip chip-soft">Output Ekspresi</span>
+                </div>
+            </div>
+            <div class="mode-card">
+                <p class="chip chip-line">Video</p>
+                <h4>Ringkas frame</h4>
+                <p>Ideal untuk klip &lt; 1 menit dengan kontrol FPS dan frame skip.</p>
+                <div class="mode-chips">
+                    <span class="chip chip-soft">MP4/AVI/MOV</span>
+                    <span class="chip chip-soft">Progress bar</span>
+                    <span class="chip chip-soft">Preview</span>
+                </div>
+            </div>
+            <div class="mode-card">
+                <p class="chip chip-line">Realtime</p>
+                <h4>Streaming webcam</h4>
+                <p>Pantau ekspresi wajah secara langsung dari kamera dengan highlight warna.</p>
+                <div class="mode-chips">
+                    <span class="chip chip-soft">Pilih kamera</span>
+                    <span class="chip chip-soft">Frame skip</span>
+                    <span class="chip chip-soft">Status live</span>
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-# ======== TAB GAMBAR ========
-with tab_image:
+
+def handle_image_tab():
     st.markdown(
         "<div class='section-heading'><h3>Deteksi Ekspresi dari Gambar</h3><p class='section-note'>Unggah potret wajah lalu jalankan deteksi untuk ringkasan ekspresi.</p></div>",
         unsafe_allow_html=True,
@@ -807,8 +804,8 @@ with tab_image:
                     "error",
                 )
 
-# ======== TAB VIDEO ========
-with tab_video:
+
+def handle_video_tab():
     st.markdown(
         "<div class='section-heading'><h3>Deteksi Ekspresi dari Video</h3><p class='section-note'>Gunakan video berdurasi kurang dari 1 menit agar tetap responsif.</p></div>",
         unsafe_allow_html=True,
@@ -906,22 +903,12 @@ with tab_video:
                 target_fps_value,
             )
 
-# ======== TAB REALTIME ========
-with tab_realtime:
+
+def handle_realtime_tab():
     st.markdown(
         "<div class='section-heading'><h3>Deteksi Ekspresi Realtime</h3><p class='section-note'>Gunakan webcam untuk mendeteksi ekspresi secara langsung.</p></div>",
         unsafe_allow_html=True,
     )
-
-    # Helper untuk mendeteksi kamera
-    def get_available_cameras(max_devices=6):
-        available = []
-        for i in range(max_devices):
-            cap = cv2.VideoCapture(i)
-            if cap.isOpened():
-                available.append(f"Camera {i}")
-            cap.release()
-        return available
 
     if "available_cameras" not in st.session_state:
         st.session_state.available_cameras = get_available_cameras()
@@ -1042,4 +1029,28 @@ with tab_realtime:
         st.session_state.run_camera = False
 
 
-st.markdown("</div>", unsafe_allow_html=True)
+def main():
+    setup_page()
+    render_sidebar()
+    
+    st.markdown("<div class='page-shell'>", unsafe_allow_html=True)
+    
+    render_hero_section()
+    render_mode_selection()
+    
+    tab_image, tab_video, tab_realtime = st.tabs(["Gambar", "Video", "Realtime"])
+    
+    with tab_image:
+        handle_image_tab()
+        
+    with tab_video:
+        handle_video_tab()
+        
+    with tab_realtime:
+        handle_realtime_tab()
+        
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+if __name__ == "__main__":
+    main()

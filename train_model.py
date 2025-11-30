@@ -2,12 +2,10 @@ import os
 import time
 import joblib
 import numpy as np
-from sklearn.svm import SVC
-from sklearn.preprocessing import LabelEncoder, StandardScaler
-from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import accuracy_score
-from sklearn.decomposition import PCA
 from tqdm import tqdm
+from utils import create_svm_model
 
 def train_model(train_features_path, save_model_dir):
     print("\n Memulai pelatihan model SVM...\n")
@@ -33,18 +31,7 @@ def train_model(train_features_path, save_model_dir):
     y_encoded = label_encoder.fit_transform(y)
 
     # === Buat pipeline ===
-    model = make_pipeline(
-        StandardScaler(),
-        PCA(n_components=200),  
-        SVC(
-            kernel='rbf',
-            C=0.1,              
-            gamma=0.001,
-            class_weight='balanced',
-            probability=True,
-            random_state=42
-        )
-    )
+    model = create_svm_model()
 
     # === Training dengan "progress" ===
     print("Melatih model...")

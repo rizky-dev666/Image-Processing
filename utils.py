@@ -3,16 +3,19 @@ import cv2
 import joblib
 import numpy as np
 from skimage.feature import hog, local_binary_pattern
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.pipeline import make_pipeline
+from sklearn.svm import SVC
+from sklearn.decomposition import PCA
 
 # ==========================
 # Konstanta Global
 # ==========================
 IMAGE_SIZE = (48, 48)
 LBP_RADIUS = 1
-LBP_N_POINTS = 8 * LBP_RADIUS  # = 8
+LBP_N_POINTS = 8 * LBP_RADIUS
 LBP_METHOD = 'uniform'
-LBP_BINS = LBP_N_POINTS + 3    # = 11 (untuk 'uniform')
+LBP_BINS = LBP_N_POINTS + 3   
 
 
 # ==========================
@@ -26,6 +29,24 @@ def resize_image(image, width=48, height=48):
 # ==========================
 # Model Handling
 # ==========================
+
+def create_svm_model():
+    """
+    Membuat pipeline model SVM dengan StandardScaler dan PCA.
+    """
+    return make_pipeline(
+        StandardScaler(),
+        PCA(n_components=200),  
+        SVC(
+            kernel='rbf',
+            C=0.1,              
+            gamma=0.001,
+            class_weight='balanced',
+            probability=True,
+            random_state=42
+        )
+    )
+
 
 def save_model(model, label_encoder, model_path="saved_model/svm_model.pkl", encoder_path="saved_model/label_encoder.pkl"):
     os.makedirs(os.path.dirname(model_path), exist_ok=True)
@@ -95,9 +116,9 @@ def extract_combined_features(image):
     return np.hstack([hog_feat, lbp_feat])
 
 
-# ==========================
-# Prediksi Gambar Tunggal
-# ==========================
+# =================
+# Prediksi Gambar
+# =================
 
 def predict_emotion(image_path, model, label_encoder):
     if not os.path.exists(image_path):
